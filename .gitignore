@@ -1,0 +1,7 @@
+*.csv
+*.O
+*.xlsx
+*.zip
+*.png
+*.rds
+/.dvc/

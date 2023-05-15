@@ -1,0 +1,2 @@
+potassium_v1 if < 230 : potassium_prediction * 1.288076 + (-106.6364)
+phosphorus_v3:  [<30, 30, 50, 80, > 80 ]

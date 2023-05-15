@@ -1,0 +1,20 @@
+INFO:root:chemicals: ['magnesium', 'zinc', 'manganese', 'sodium', 'potassium', 'sulphur', 'calcium', 'ph', 'phosphorus', 'psi', 'ec_salts', 'cec', 'clay', 'sand', 'silt', 'aluminium', 'boron', 'copper', 'iron']
+INFO:root:path_to_spectra: /home/java/Evaluation_tool_v5_files/v2.2_spectra.csv
+INFO:root:path_to_wet: /home/java/Evaluation_tool_v5_files/v2.2_update_wetchem.csv
+INFO:root:prediction_folder_path: /home/java/Evaluation_tool_v5_files
+INFO:root:model_versions: ['DLv2.0', 'DLv2.2']
+INFO:root:path_to_model: /home/java/Evaluation_tool_v5_files/
+INFO:root:output_path: /home/java/Evaluation_tool_v5_files/
+INFO:root:post_pred_version_per_chem: {'potassium': 'v1', 'phosphorus': 'v3', 'zinc': 'v1'}
+INFO:root:paths: ['/home/java/Evaluation_tool_v5_files/v2.2_spectra.csv']
+INFO:root:working_metrics: ['slope', 'intercept', 'RMSE', 'RSC', 'R2', 'RMSECVQ1', 'RMSECVQ2', 'RMSECVQ3', 'RMSECVQ4']
+INFO:root:chemicals: ['magnesium', 'zinc', 'manganese', 'sodium', 'potassium', 'sulphur', 'calcium', 'ph', 'phosphorus', 'psi', 'ec_salts', 'cec', 'clay', 'sand', 'silt', 'aluminium', 'boron', 'copper', 'iron']
+INFO:root:path_to_spectra: /home/java/Evaluation_tool_v5_files/v2.2_spectra.csv
+INFO:root:path_to_wet: /home/java/Evaluation_tool_v5_files/v2.2_update_wetchem.csv
+INFO:root:prediction_folder_path: /home/java/Evaluation_tool_v5_files
+INFO:root:model_versions: ['DLv2.0', 'DLv2.2']
+INFO:root:path_to_model: /home/java/Evaluation_tool_v5_files/
+INFO:root:output_path: /home/java/Evaluation_tool_v5_files/
+INFO:root:post_pred_version_per_chem: {'potassium': 'v1', 'phosphorus': 'v3', 'zinc': 'v1'}
+INFO:root:paths: ['/home/java/Evaluation_tool_v5_files/v2.2_spectra.csv']
+INFO:root:working_metrics: ['slope', 'intercept', 'RMSE', 'RSC', 'R2', 'RMSECVQ1', 'RMSECVQ2', 'RMSECVQ3', 'RMSECVQ4']
