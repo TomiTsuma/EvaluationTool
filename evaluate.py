@@ -41,13 +41,15 @@ print(f'tensorflow version : {tf.version.VERSION}')
 
 
 def predict_chems(path_to_model, predction_folder_path, chemicals, model_versions, data):
+
     for model_version in model_versions:
+        if (model_version not in [str(x) for x in os.listdir(path_to_model)]):
+            continue
 
         print(f'Starting prediction using model version {model_version}')
         base_path = Path(path_to_model)
         print(f"This is the path to model {path_to_model}")
         for chemical in chemicals:
-            print(chemical)
             preds_comb = pd.DataFrame()
             models_folder = base_path / model_version / chemical / 'std'
             print(f"This is the model path {models_folder}")
@@ -88,6 +90,7 @@ def predict_chems(path_to_model, predction_folder_path, chemicals, model_version
                 model = tf.keras.models.load_model(model_path, compile=False)
                 preds = pd.DataFrame(model(inputs).numpy())
                 preds_comb = pd.concat([preds_comb, preds], axis=1)
+
             preds_comb = preds_comb.median(axis=1)
             preds_comb.index = new_indices
 
@@ -110,31 +113,32 @@ def subset_data(spc_data, path_to_codes_subset):
 
 
 def join_preds_wet(path_to_wet, output_path, model_versions, chemicals, predction_folder_path):
+    print("This is the path to wetchem", path_to_wet)
     os.makedirs(Path(os.path.join(output_path)) /
                 'saved_models', exist_ok=True)
     df = pd.read_csv(path_to_wet, index_col=0)
     df.index = df.index.str.strip()
-    for chemical in chemicals:
-        df_ = df[chemical]
-        df_ = df_.to_frame()
-        df_ = df_.dropna()
-        comb_df = pd.DataFrame()
 
+    for chemical in chemicals:
+        df_ = df[chemical].dropna()
+        df_ = df_.to_frame()
+        comb_df = pd.DataFrame()
+        print("Model versions used during joining", model_versions)
         for model_version in model_versions:
             print(
                 f'Starting to join predictions and wetchem for evaluation for model version {model_version}')
+            print(f'{predction_folder_path}/{model_version}/{chemical}_preds.csv')
             print(f"Prediction folder path {predction_folder_path}")
             df_preds = pd.read_csv(
                 f'{predction_folder_path}/{model_version}/{chemical}_preds.csv', index_col=0, header=None)
-
             df_preds = df_preds.reindex(df_.index)
             # df_preds = df_preds.dropna()
-            print("Preds", df_preds)
             df_preds = df_preds.rename(
                 columns={1: f'{model_version}_regression'})
             comb_df = pd.concat([comb_df, df_preds], axis=1)
-        print("Preds", df_preds)
+            print(len(df_preds.index))
         df_wet = df_.rename(columns={chemical: 'y_true_val'})
+        print(len(df_wet.index))
         print("Wet", df_wet)
         comb_df = pd.concat([comb_df, df_wet], axis=1)
         comb_df = comb_df.dropna()
@@ -377,13 +381,14 @@ class EvaluationTool:
                 other_chem_list[i])
 
         df_perc.to_excel(writer, sheet_name=f"{cec_list[0]}")
-        writer.save()
+        writer.close()
 
         chem_model_map = self.get_chem_model_map(
             training_pred_score_path, chemical)
         model_names = chem_model_map.get(chemical)
 
         model_names = chem_model_map.get(chemical)
+        print("These are the model names", model_names)
 
         df_ = pd.read_excel(os.path.join(training_pred_score_path, 'saved_models',
                             f'{chemical}_%_False_y_pred_list_df.xlsx'), index_col=0, engine='openpyxl')
@@ -655,24 +660,31 @@ class PlotModelStats:
             if method == 'classification':
                 chem_model_map = EvaluationTool().get_chem_model_map(
                     training_pred_score_path, chemical)
-                print(chem_model_map)
-                for models_ in chem_model_map.get(chemical):
+                print("Chemical model map",chem_model_map)
+                print("Chemical in chemicals_conv is", chemical)
+                print(chem_model_map[chemical])
+                for models_ in chem_model_map[chemical]:
+                    print(models_)
                     model_first_name = models_
                     if chemical in guides.keys():
-
+                        print("Guides chemical", chemical)
                         chem_with_plots.append(chemical)
                         df = pd.read_csv(os.path.join(
                             training_pred_score_path, 'saved_models/{}_False_y_pred_list_df.csv'.format(chemical)), index_col=0)
+                        print("1")
                         y_val = df['y_true_val'].values
                         y_preds = df[f'{model_first_name}_regression'].values
+                        print("2")
                         preds_vs_wet_temp = pd.DataFrame(
                             [y_val.reshape(-1,), y_preds.reshape(-1,)], index=['wet', 'preds']).T
                     #     break
                         preds_vs_wet_temp[f'{chemical}_labels'] = pd.cut(preds_vs_wet_temp['wet'].dropna(
                         ), bins=guides[f'{chemical}'], labels=["very_low", "low", "optimum", "high"])
+                        print("3")
                         preds_vs_wet_temp["label_code"] = preds_vs_wet_temp[
                             f'{chemical}_labels'].cat.codes
-
+                        print("Preds vs wet temp")
+                        print("4")
                         preds_vs_wet_temp[f'{chemical}_labels_preds'] = pd.cut(preds_vs_wet_temp['preds'].dropna(
                         ), bins=guides[f'{chemical}'], labels=["very_low", "low", "optimum", "high"])
 
@@ -697,9 +709,10 @@ class PlotModelStats:
                             preds_vs_wet_temp.to_csv(os.path.join(
                                 training_pred_score_path, f'{chemical}_{model_first_name}_classes.csv'))
                         # cm = confusion_matrix(preds_vs_wet_temp[f'{chemical}_labels'], preds_vs_wet_temp[f'{chemical}_labels_preds'], labels=target_names)
-
+                        print("Confusion matrix start")
                         cm = confusion_matrix(
                             preds_vs_wet_temp['label_code'], preds_vs_wet_temp['label_preds_code'], labels=[0, 1, 2, 3])
+                        print("Confusion matrix end")
 
                         if codes != None:
                             self._plot_confusion_matrix_plotly(
@@ -711,10 +724,13 @@ class PlotModelStats:
                         else:
                             self._plot_confusion_matrix_plotly(
                                 cm, training_pred_score_path, chemical, model_first_name, area, normalize=False, plot=False, codes=None)
+                            print("Confusion matrix plotly 1")
                             self._plot_confusion_matrix_plotly(
                                 cm, training_pred_score_path, chemical, model_first_name, area, normalize=True, plot=False, codes=None)
+                            print("Confusion matrix plotly 2")
                             self.combine_cm_matrices(
                                 training_pred_score_path, codes=None)
+                            print("Combine cm matrices")
 
         # to handle duplicate chemicals in list
         chem_with_list = OrderedDict.fromkeys(chem_with_plots)
@@ -807,7 +823,7 @@ class PlotModelStats:
         return cm_comb_path
 
     def _PlotScatter(self, training_pred_score_path, chemicals_conv, plot=True, codes=None):
-
+        print("_Plot Scatter")
         method = "regression"
 
         path_to_saved_models = os.path.join(
@@ -819,7 +835,6 @@ class PlotModelStats:
 
         for chemical in chemicals_conv:
 
-            print(chemical)
             if method == 'regression':
                 print('yes')
                 chem_model_map = EvaluationTool().get_chem_model_map(
@@ -926,7 +941,13 @@ class PlotModelStats:
 
     def Image_combiner(self, all_files):
         images = [Image.open(x) for x in all_files]
+        print(images)
+        print("Widths and heights start")
+        print(zip(*(i.size for i in images)))
         widths, heights = zip(*(i.size for i in images))
+        print("Widths and heights")
+        print(widths)
+        print(heights)
 
         total_width = sum(widths)
         max_height = max(heights)
@@ -944,6 +965,7 @@ class PlotModelStats:
                                 'magnesium', 'potassium', 'phosphorus']
         chem_map = EvaluationTool().get_chem_model_map(
             training_pred_score_path, chemical)
+        print("Chemical map is ", chem_map)
         if codes != None:
 
             delimiter = f'/saved_models/scatter_plots_subset/{chemical}*'
@@ -956,14 +978,14 @@ class PlotModelStats:
             all_files = sorted(glob.glob(training_pred_score_path + delimiter))
 
         elif chemical in chemical_to_separate:
-            delimiter = f'/saved_models/scatter_plots/{chemical}_DL*'
+            delimiter = f'/saved_models/scatter_plots/{chemical}_*'
             all_files = sorted(glob.glob(training_pred_score_path + delimiter))
 
         else:
-
             all_files = sorted(glob.glob(training_pred_score_path + delimiter))
-
+        print("Image Combiner call start")
         new_im = self.Image_combiner(all_files)
+        print("Image Combiner call end")
         if codes != None:
 
             new_im.save(os.path.join(training_pred_score_path, 'saved_models',
@@ -1107,7 +1129,7 @@ class Models_Summary:
             self.method2 = 'classification'
 
     def Models_Summary(self, training_pred_score_path, project_name, working_metrics, corrected_chems=None, chem_correction=None, training_pred_score_paths=None, wet_chem_path=None, predict=False, codes=None):
-
+        print("Model Summary 1")
         project_name = "".join(project_name.split("_"))
         added_chemicals = ['calcium_%', 'potassium_%', 'magnesium_%']
 
@@ -1118,6 +1140,7 @@ class Models_Summary:
         path_to_saved_models = Path(path_to_saved_models)
         chemicals_conv = [x.name.split("_")[0] for x in path_to_saved_models.glob(
             '**/*False_y_pred_list_df.csv')]
+        print("Model Summary 1 chemicals conv", chemicals_conv)
 
         if wet_chem_path != None:
             wet_chem = pd.read_csv(wet_chem_path, index_col=0)
@@ -1137,7 +1160,6 @@ class Models_Summary:
                 training_pred_score_path, 'saved_models') + f'/*.csv')
 
             for chem in chems:
-
                 best_model = best_models.at[chem, 'model']
                 df_ = df_chems[chem].to_frame()
                 df_wet = wet_chem[chem].to_frame()
@@ -1153,19 +1175,24 @@ class Models_Summary:
             pass
 
         if codes != None:
+            print("Codes found")
             #             EvaluationTool().chem_to_percentage_conversion(training_pred_score_path, codes=codes)
             PlotModelStats()._PlotScatter(training_pred_score_path,
                                           chemicals_conv, plot=False, codes=codes)
             try:
+                print("Creating confusion matrices")
                 PlotModelStats()._create_confusion_matrices(
                     training_pred_score_path, region, chemicals_conv, codes=codes)
-            except:
+            except Exception as e:
+                print("Here is the exception", e)
                 pass
             path_to_save = os.path.join(
                 training_pred_score_path, 'saved_models', 'Predictions_subset')
             os.makedirs(path_to_save, exist_ok=True)
         else:
+            print("No codes")
             if chem_correction:
+                print("Chem correction")
                 #                 EvaluationTool().chem_to_percentage_conversion(training_pred_score_path,chem_correction)
                 #                 path_to_remove = [x for x in os.listdir(os.path.join(training_pred_score_path, 'saved_models') ) if 'cec' in x]
                 #                 try:
@@ -1180,18 +1207,21 @@ class Models_Summary:
                                                             chem_correction, chemicals_conv=chemicals_conv, codes=codes)
 
             else:
-
+                print("No chem corrections")
                 #                 pass
                 EvaluationTool().chem_to_percentage_conversion(
                     training_pred_score_path, chemicals_conv)
+                print("chem_to_percentage_conversion")
                 PlotModelStats()._PlotScatter(training_pred_score_path, chemicals_conv, plot=False)
+                print("_PlotScatter")
                 PlotModelStats()._create_confusion_matrices(training_pred_score_path, region,
                                                             chem_correction, chemicals_conv=chemicals_conv, codes=codes)
+                print("_create_confusion_matrices")
 
             path_to_save = os.path.join(
                 training_pred_score_path, 'saved_models', 'Predictions')
             os.makedirs(path_to_save, exist_ok=True)
-
+        print("Completed plot scatter part")
         p_df = pd.DataFrame()
         other_chems = pd.DataFrame()
         add_chems = ['calcium_%', 'magnesium_%', 'potassium_%']
@@ -1218,6 +1248,7 @@ class Models_Summary:
                     df.to_csv(os.path.join(training_pred_score_path, 'saved_models',
                               'Predictions', f'predictions_{chemical}.csv'))
                 else:
+                    print("Here is the failed chemical", chemical)
                     df = pd.read_csv(os.path.join(
                         training_pred_score_path, 'saved_models', f'{chemical}_False_y_pred_list_df.csv'), index_col=0)
                     df.to_csv(os.path.join(training_pred_score_path, 'saved_models',
@@ -1312,7 +1343,6 @@ class Models_Summary:
             try:
 
                 for model_first_name in models:
-                    print(chemical)
 
                     df = pd.read_csv(os.path.join(
                         training_pred_score_path, f'{chemical}_{model_first_name}_classes.csv'), index_col=0)
@@ -1584,7 +1614,6 @@ class Models_Summary:
         eval_summary_subset = eval_summary.copy()
         metric_rank_dict = {}
         list_models = []
-        print(chemical)
 #         print(eval_summary_subset)
         if All_metrics == False:
             working_metrics = working_metrics
@@ -1788,7 +1817,6 @@ class Models_Summary:
             chemicals_conv.append(chem_)
 
         all_chems = chemicals_conv
-        print("These are the chemicals conv$$$$$$$$$$$$$$$$$$", all_chems)
         for chemical in chemicals_conv:
 
             if chemical in corrected_chems:
@@ -2035,13 +2063,14 @@ class Models_Summary:
         return df
 
 
-def eval(chemicals, path_to_spectra, path_to_wet, predction_folder_path, model_versions, path_to_model, output_path, account_username):
+def eval(chemicals, path_to_spectra, path_to_wet, predction_folder_path, model_versions, path_to_model, output_path):
+
     # v2.0 v2.2
     import gc
     gc.collect()
-
+    print("These are the model versions", model_versions)
     global Models_Summary
-    Models_Summary = Models_Summary()
+    modelsSummary = Models_Summary()
     # chemicals = ['magnesium','zinc', 'manganese', 'sodium', 'potassium', 'sulphur', 'calcium','ph', 'phosphorus', 'clay', 'sand', 'silt', 'aluminium', 'boron', 'copper','iron']
     # chemicals = ['exchangeable_acidity']
 
@@ -2066,12 +2095,13 @@ def eval(chemicals, path_to_spectra, path_to_wet, predction_folder_path, model_v
                        'RMSECVQ2', 'RMSECVQ3', 'RMSECVQ4', 'Accuracy', 'PCC1', 'PCC2', 'PCC3']
     # 'recall_score', 'precision_score','f1_score'
     from pandas import pivot_table
-    training_pred_score_path = f'/home/{account_username}/DSML125/outputFiles/predictions'
+    training_pred_score_path = f'{os.getcwd()}/outputFiles/predictions'
     lines = [chemicals, path_to_spectra, path_to_wet, predction_folder_path, model_versions,
              path_to_model, output_path, post_pred_version_per_chem, paths, working_metrics]
     delete_files(training_pred_score_path)
     # project_name = 'v2.0-v2.2'
-    df = Models_Summary.ModelsSummaryStats(training_pred_score_path, 'ModelUpdateTrial', working_metrics, corrected_chems=[
+    print("Model Summary Stats Call 1")
+    df = modelsSummary.ModelsSummaryStats(training_pred_score_path, 'ModelUpdateTrial', working_metrics, corrected_chems=[
         'zinc', 'phosphrous'], chem_correction=True, predict=False)
 
     # 2021-x-x_v2.0-v2.2_v2.0-v2.2_v5.1
