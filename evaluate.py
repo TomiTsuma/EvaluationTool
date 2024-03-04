@@ -16,6 +16,8 @@ import shutil
 import itertools
 import pandas as pd
 from datetime import date
+import sys
+# sys.path.append("/home/tom/miniconda3/lib/python3.10/site-packages")
 from PIL import Image
 import glob
 import numpy as np
@@ -1128,7 +1130,7 @@ class Models_Summary:
 
             self.method2 = 'classification'
 
-    def Models_Summary(self, training_pred_score_path, project_name, working_metrics, corrected_chems=None, chem_correction=None, training_pred_score_paths=None, wet_chem_path=None, predict=False, codes=None):
+    def Models_Summary(self, training_pred_score_path, project_name, working_metrics, corrected_chems=None, chem_correction=None, training_pred_score_paths=None, wet_chem_path=None, predict=False, codes=None, chemicals=None):
         print("Model Summary 1")
         project_name = "".join(project_name.split("_"))
         added_chemicals = ['calcium_%', 'potassium_%', 'magnesium_%']
@@ -1138,8 +1140,9 @@ class Models_Summary:
         path_to_saved_models = os.path.join(
             training_pred_score_path, 'saved_models')
         path_to_saved_models = Path(path_to_saved_models)
-        chemicals_conv = [x.name.split("_")[0] for x in path_to_saved_models.glob(
-            '**/*False_y_pred_list_df.csv')]
+        # chemicals_conv = [x.name.split("_")[0] for x in path_to_saved_models.glob(
+        #     '**/*False_y_pred_list_df.csv')]
+        chemicals_conv =chemicals
         print("Model Summary 1 chemicals conv", chemicals_conv)
 
         if wet_chem_path != None:
@@ -1227,6 +1230,7 @@ class Models_Summary:
         add_chems = ['calcium_%', 'magnesium_%', 'potassium_%']
         if chem_correction == True:
             chemicals_conv = ['zinc', 'phosphorus', 'potassium']
+        print("Chemicals conv", chemicals_conv)
         for chemical in chemicals_conv:
             if chemical in add_chems:
                 print("Chemicals was in add_chems")
@@ -1253,7 +1257,7 @@ class Models_Summary:
                         training_pred_score_path, 'saved_models', f'{chemical}_False_y_pred_list_df.csv'), index_col=0)
                     df.to_csv(os.path.join(training_pred_score_path, 'saved_models',
                               'Predictions', f'predictions_{chemical}.csv'))
-
+            
 #             if method == "regression":
             if codes != None:
                 df1, df2 = EvaluationTool()._preds_vs_wet_statistics(
@@ -1265,7 +1269,7 @@ class Models_Summary:
                 df1, df2 = EvaluationTool()._preds_vs_wet_statistics(
                     training_pred_score_path, chemical, codes=None)
                 other_chems = pd.concat([other_chems, df1])
-
+        print("Other chems --------->",other_chems)
         if codes != None:
 
             path_to_save = os.path.join(
@@ -2023,10 +2027,9 @@ class Models_Summary:
             [comb_df_corrected, df_y_true_val], axis=1)
         return comb_df_corrected
 
-    def ModelsSummaryStats(self, training_pred_score_path, project_name, working_metrics, corrected_chems=None, chem_correction=None, training_pred_score_paths=None, wet_chem_path=None, predict=False, codes=None):
+    def ModelsSummaryStats(self, training_pred_score_path, project_name, working_metrics, corrected_chems=None, chem_correction=None, training_pred_score_paths=None, wet_chem_path=None, predict=False, codes=None, chemicals=None):
 
-        self.Models_Summary(training_pred_score_path, project_name,
-                            working_metrics, corrected_chems=False)
+        self.Models_Summary(training_pred_score_path, project_name, working_metrics, corrected_chems=False, chemicals=chemicals)
 
         df = self.post_prediction_preds(
             training_pred_score_path, project_name, working_metrics, corrected_chems, chem_correction=True)
@@ -2083,6 +2086,7 @@ def eval(chemicals, path_to_spectra, path_to_wet, predction_folder_path, model_v
 
     # path_to_model = 'D://CropNutsDocuments/DS-ML87/outputFiles/exchangeable_acidity_20230502_090639.071097'
     # output_path = 'D://CropNutsDocuments/DS-ML87/outputFiles/data/preds'
+    chemicals.append("cec")
     predict_chems(path_to_model, predction_folder_path, chemicals,
                   model_versions, pd.read_csv(path_to_spectra, engine='c', index_col=0))
     post_pred_version_per_chem = {
@@ -2095,14 +2099,14 @@ def eval(chemicals, path_to_spectra, path_to_wet, predction_folder_path, model_v
                        'RMSECVQ2', 'RMSECVQ3', 'RMSECVQ4', 'Accuracy', 'PCC1', 'PCC2', 'PCC3']
     # 'recall_score', 'precision_score','f1_score'
     from pandas import pivot_table
-    training_pred_score_path = f'{os.getcwd()}/outputFiles/predictions'
+    training_pred_score_path = output_path
     lines = [chemicals, path_to_spectra, path_to_wet, predction_folder_path, model_versions,
              path_to_model, output_path, post_pred_version_per_chem, paths, working_metrics]
     delete_files(training_pred_score_path)
     # project_name = 'v2.0-v2.2'
     print("Model Summary Stats Call 1")
     df = modelsSummary.ModelsSummaryStats(training_pred_score_path, 'ModelUpdateTrial', working_metrics, corrected_chems=[
-        'zinc', 'phosphrous'], chem_correction=True, predict=False)
+        'zinc', 'phosphrous'], chem_correction=True, predict=False, chemicals=chemicals)
 
     # 2021-x-x_v2.0-v2.2_v2.0-v2.2_v5.1
 
