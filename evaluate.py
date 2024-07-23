@@ -2030,30 +2030,3 @@ def eval(chemicals, path_to_spectra, path_to_wet, predction_folder_path, model_v
     gc.collect()
 
 
-if __name__ == "__main__":
-    models = [
-        # "v2.2",
-        'baseoptimize',
-        'spike50optimize',
-        'spike250optimize',
-        ]
-    eval(
-        chemicals=[
-            'ph',
-            'sand',
-            'phosphorus',
-            'clay',
-            'magnesium',
-            'calcium',
-            'organic_carbon',
-            'potassium'
-        ],
-        path_to_spectra=f"D://Cropnuts/DSML155/input",
-        path_to_wet=f"D://Cropnuts/DSML155/input/wetchem.csv",
-        predction_folder_path=f"D://Cropnuts/DSML155/output/predictions",
-        model_versions=[i for i in models if i in (os.listdir(
-            f"D://Cropnuts/QC_Model_Predictions/dl_models_all_chems_20210414"))],
-        path_to_model="D://Cropnuts/QC_Model_Predictions/dl_models_all_chems_20210414",
-        output_path="D://Cropnuts/DSML155/output/evaluation/twomm_evaluation",
-        project_name= 'twomm_evaluation'
-    )
