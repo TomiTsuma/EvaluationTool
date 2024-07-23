@@ -42,8 +42,10 @@ print(f'tensorflow version : {tf.version.VERSION}')
 # ClassifierKwargs = ClassifierKwargs()
 
 
-def predict_chems(path_to_model, predction_folder_path, chemicals, model_versions, data):
-
+def predict_chems(path_to_model, predction_folder_path, chemicals, model_versions, path_to_spectra):
+    data_spc = pd.read_csv(os.path.join(path_to_spectra, "two_mm_test.csv"), index_col=0, engine='c')
+ 
+   
     for model_version in model_versions:
         if (model_version not in [str(x) for x in os.listdir(path_to_model)]):
             continue
@@ -52,11 +54,16 @@ def predict_chems(path_to_model, predction_folder_path, chemicals, model_version
         base_path = Path(path_to_model)
         print(f"This is the path to model {path_to_model}")
         for chemical in chemicals:
+            # test_codes_chem = pd.read_csv(Path(os.path.join(path_to_spectra,model_version, f'splits/{chemical}_test_sample_codes.csv')),index_col=1)
+            # data = data_spc.reindex(test_codes_chem.index)
+            data = data_spc.copy(deep=True)
             preds_comb = pd.DataFrame()
             models_folder = base_path / model_version / chemical / 'std'
             print(f"This is the model path {models_folder}")
             all_models = [x for x in models_folder.glob('**/*.hdf5')]
             print(f"These are the models {all_models}")
+            if len(all_models) == 0:
+                raise("Models for chemical {} not found".format(chemical))
             #                             data = pd.read_csv(filename, index_col=[0,1])
             data = data
             new_indices = data.index
@@ -138,6 +145,8 @@ def join_preds_wet(path_to_wet, output_path, model_versions, chemicals, predctio
             df_preds = df_preds.rename(
                 columns={1: f'{model_version}_regression'})
             comb_df = pd.concat([comb_df, df_preds], axis=1)
+            comb_df.to_pickle(Path(os.path.join(output_path)) / 'saved_models' /
+                          f'{chemical}_{model_version}_regression_False_score_trained.pkl')
             print(len(df_preds.index))
         df_wet = df_.rename(columns={chemical: 'y_true_val'})
         print(len(df_wet.index))
@@ -149,8 +158,8 @@ def join_preds_wet(path_to_wet, output_path, model_versions, chemicals, predctio
 
         comb_df.to_csv(Path(os.path.join(output_path, 'saved_models')
                             ) / f'{chemical}_False_y_pred_list_df.csv')
-        comb_df.to_pickle(Path(os.path.join(output_path)) / 'saved_models' /
-                          f'{chemical}_{model_version}_regression_False_score_trained.pkl')
+        # comb_df.to_pickle(Path(os.path.join(output_path)) / 'saved_models' /
+        #                   f'{chemical}_{model_version}_regression_False_score_trained.pkl')
 
 
 def join_diff_models_data(output_path, model_versions, chemicals, name_of_subset):
@@ -622,7 +631,7 @@ class PlotModelStats:
 
     def _plot_confusion_matrix_plotly(self, cm, training_pred_score_path,chemical,model_first_name,area,normalize=False,plot=False, codes=None): 
         cm_path = training_pred_score_path
-        
+       
         if normalize:
             cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
             cm = cm.round(4)
@@ -944,19 +953,22 @@ class PlotModelStats:
                     
                     self.combine_scatter_plots(training_pred_score_path, chemical, codes=codes)
                 else:
-                    try:
-                        if len(models_)> 1:
-                            print("REacheed chem + +++++++++++++++++++++++++++++++++ ++ ", chemical)
-                            self.combine_scatter_plots(training_pred_score_path, chemical, codes=None)
-                    except:
-                        pass
+                    # try:
+                    if len(models_)> 1:
+                        print("REacheed chem + +++++++++++++++++++++++++++++++++ ++ ", chemical)
+                        self.combine_scatter_plots(training_pred_score_path, chemical, codes=None)
+                    # except:
+                    #     pass
                     else:
                         pass
                 
             
         return
     def Image_combiner(self, all_files):
+        print("=================", all_files)
         images = [Image.open(x) for x in all_files]
+        print(images)
+        print(*(i.size for i in images))
         widths, heights = zip(*(i.size for i in images))
 
         total_width = sum(widths)
@@ -986,7 +998,7 @@ class PlotModelStats:
             
         
         elif chemical in chemical_to_separate:
-            delimiter = f'/saved_models/scatter_plots/{chemical}_DL*'
+            delimiter = f'/saved_models/scatter_plots/{chemical}*'
             all_files = sorted(glob.glob(training_pred_score_path + delimiter))
         
         else:
@@ -1050,7 +1062,7 @@ def saved_eval_params(training_pred_score_path, project_name, lines, lines_dict)
 
     d1 = today.strftime("%Y/%m/%d")
     d1 = d1.replace('/', '_')
-    dl_new = f'{d1}_{project_name}_v2.0_v2.2_v5'
+    dl_new = f'{d1}_{project_name}_v2.0_v2.2_v6'
     LOG_FILENAME = os.path.join(
         training_pred_score_path, f'reproducing_evaluation.log')
     for handler in logging.root.handlers[:]:
@@ -1174,8 +1186,11 @@ class Models_Summary:
                 df_wet = df_wet.rename(columns ={chem : 'y_true_val'})
                 comb_df = pd.concat([df_,df_wet],axis=1)
                 comb_df.to_csv(os.path.join(training_pred_score_path , 'saved_models',f'{chem}_False_y_pred_list_df.csv'))
-                comb_df.to_pickle(os.path.join(training_pred_score_path , 'saved_models',f'{chem}_{best_model}_regression_False_score_trained.pkl'))
-                
+                # comb_df.to_pickle(os.path.join(training_pred_score_path , 'saved_models',f'{chem}_{best_model}_regression_False_score_trained.pkl'))
+            all_models_plus_chem = list(comb_df.columns)
+            all_models_plus_chem = all_models_plus_chem.remove('y_true_val')
+            for model in all_models_plus_chem:
+                comb_df.to_pickle(os.path.join(training_pred_score_path , 'saved_models',f'{chem}_{model}_regression_False_score_trained.pkl'))
                 
                 
         else:
@@ -1185,10 +1200,10 @@ class Models_Summary:
         if codes != None:
 #             EvaluationTool().chem_to_percentage_conversion(training_pred_score_path, codes=codes)
             PlotModelStats()._PlotScatter(training_pred_score_path,chemicals_conv, plot=False, codes=codes)
-            try:
-                PlotModelStats()._create_confusion_matrices(training_pred_score_path, region,chemicals_conv, codes=codes)
-            except:
-                pass
+            # try:
+            PlotModelStats()._create_confusion_matrices(training_pred_score_path, region,chemicals_conv, codes=codes)
+            # except:
+            #     pass
             path_to_save = os.path.join(training_pred_score_path, 'saved_models', 'Predictions_subset')
             os.makedirs(path_to_save, exist_ok=True)
         else:
@@ -1318,26 +1333,26 @@ class Models_Summary:
 #         crop = os.path.basename(training_pred_score_path)
 #         guides = plant_guides[crop]
         for chemical in chemicals_conv:
-            try:
+            # try:
 
-                for model_first_name in models:
-                    print(f'Evaluation summary for {chemical}')
+            for model_first_name in models:
+                print(f'Evaluation summary for {chemical}')
 
-                    df = pd.read_csv(os.path.join(training_pred_score_path,f'{chemical}_{model_first_name}_classes.csv' ), index_col=0)
+                df = pd.read_csv(os.path.join(training_pred_score_path,f'{chemical}_{model_first_name}_classes.csv' ), index_col=0)
 
-                    df['class_diff'] = abs(df['label_code'] - df['label_preds_code'])
+                df['class_diff'] = abs(df['label_code'] - df['label_preds_code'])
 
-                    total_samples = df.shape[0]
+                total_samples = df.shape[0]
 
-                    value_counts = df.class_diff.value_counts()
+                value_counts = df.class_diff.value_counts()
 
-                    for class_ in value_counts.index.values:
+                for class_ in value_counts.index.values:
 
 
-                        df_2.at[(f'{chemical}', f'{model_first_name}_regression'), f'PCC{class_}'] = round((value_counts.loc[class_] / total_samples) * 100, 2)
-            except Exception as e:
+                    df_2.at[(f'{chemical}', f'{model_first_name}_regression'), f'PCC{class_}'] = round((value_counts.loc[class_] / total_samples) * 100, 2)
+            # except Exception as e:
                 
-                print(e)
+            #     print(e)
 
 
         df_2.index.name = ('index','Model')
@@ -1498,21 +1513,26 @@ class Models_Summary:
 
             d1 = today.strftime("%Y/%m/%d")
             d1 = d1.replace('/','_')
-            
+        
+       
+        
             if chem_correction:
                 pass
             else:
                 
-                os.makedirs(os.path.join(training_pred_score_path,f'{d1}_{project_name}__v5'),exist_ok=True)
+                os.makedirs(os.path.join(training_pred_score_path,f'{d1}_{project_name}_v6'),exist_ok=True)
 #                 os.makedirs(os.path.join(training_pred_score_path,f'{d1}_{project_name}__v5'),exist_ok=True)
-                final_folder = os.path.join(training_pred_score_path,f'{d1}_{project_name}__v5','pre_correction')
+                final_folder = os.path.join(training_pred_score_path,f'{d1}_{project_name}_v6','pre_correction')
                 os.makedirs(final_folder,exist_ok=True)
                 
                 for folder in folders:
-
-    #                 copy_tree(os.path.join(path_to_save, folder), final_folder)
-    
                     current_folder = os.path.join(path_to_save, folder)
+                    destination_folder = os.path.join(final_folder, folder)
+                    
+                    # Move the current folder to the final destination
+                    shutil.move(current_folder, destination_folder)
+
+                    # shutil.copytree(current_folder, final_folder)
                     # !cp -r {current_folder} {final_folder}
 
 #      # Copy folders recursively.
@@ -1624,13 +1644,13 @@ class Models_Summary:
             for row in reader:
                 list_.append(row)
         for training_pred_score_path in list_:
-            try:
-                df = pd.read_csv(os.path.join(training_pred_score_path[0], 'saved_models', 'Evaluation_Summary','best_model.csv'))
-                df['modelling_type'] = training_pred_score_path[1]
-                df_dict.update({training_pred_score_path[1]: df})
-                self.Models_Summary(training_pred_score_path[0], project_name, working_metrics,training_pred_score_paths=None,wet_chem_path=None ,predict=False, codes=None)
-            except:
-                pass
+            # try:
+            df = pd.read_csv(os.path.join(training_pred_score_path[0], 'saved_models', 'Evaluation_Summary','best_model.csv'))
+            df['modelling_type'] = training_pred_score_path[1]
+            df_dict.update({training_pred_score_path[1]: df})
+            self.Models_Summary(training_pred_score_path[0], project_name, working_metrics,training_pred_score_paths=None,wet_chem_path=None ,predict=False, codes=None)
+            # except:
+            #     pass
 
         chemicals_conv = []
         training_pred_score_path = list_[0][0]
@@ -1718,81 +1738,81 @@ class Models_Summary:
         chem_correction = True
         added_chemicals = ['calcium_%', 'potassium_%','magnesium_%']
        
-        try:
-            chemicals_conv = []
-            path = os.path.join(training_pred_score_path ,'post_correction', )
-            os.makedirs(path,exist_ok=True)
-            path2 = os.path.join(training_pred_score_path ,'post_correction', 'saved_models' )
-            os.makedirs(path2,exist_ok=True)
-            path_to_saved_models =  os.path.join(training_pred_score_path, 'saved_models')
-            path_to_saved_models = Path(path_to_saved_models)
-            all_models_chems = [x for x in path_to_saved_models.glob('**/*False_y_pred_list_df.csv')]
+        # try:
+        chemicals_conv = []
+        path = os.path.join(training_pred_score_path ,'post_correction', )
+        os.makedirs(path,exist_ok=True)
+        path2 = os.path.join(training_pred_score_path ,'post_correction', 'saved_models' )
+        os.makedirs(path2,exist_ok=True)
+        path_to_saved_models =  os.path.join(training_pred_score_path, 'saved_models')
+        path_to_saved_models = Path(path_to_saved_models)
+        all_models_chems = [x for x in path_to_saved_models.glob('**/*False_y_pred_list_df.csv')]
 
-            for models_chem in all_models_chems:
-                chem_ = models_chem.stem.split('_False')[0]
-                chemicals_conv.append(chem_)
-
-
-            all_chems = chemicals_conv
-            for chemical in chemicals_conv:
-
-                if chemical in corrected_chems:
-                    chem_map = EvaluationTool().get_chem_model_map(training_pred_score_path, chemical)
-                    models = chem_map.get(chemical)
-                    for idx, models_ in enumerate(chem_map.get(chemical)):
-                        print(idx , '+++++++++++++++++++++++++++++++++++++++++')
-                        model_first_name = models_
+        for models_chem in all_models_chems:
+            chem_ = models_chem.stem.split('_False')[0]
+            chemicals_conv.append(chem_)
 
 
-                        print(f'+ + + + + + Starting Post prediction corection for {chemical} + + + + + + +')
+        all_chems = chemicals_conv
+        for chemical in chemicals_conv:
+
+            if chemical in corrected_chems:
+                chem_map = EvaluationTool().get_chem_model_map(training_pred_score_path, chemical)
+                models = chem_map.get(chemical)
+                for idx, models_ in enumerate(chem_map.get(chemical)):
+                    print(idx , '+++++++++++++++++++++++++++++++++++++++++')
+                    model_first_name = models_
+
+
+                    print(f'+ + + + + + Starting Post prediction corection for {chemical} + + + + + + +')
 
 
 
-                        df = pd.read_csv(os.path.join(training_pred_score_path , 'saved_models/',f'{chemical}_False_y_pred_list_df.csv'),index_col=0)
-                        if chemical == 'zinc':
+                    df = pd.read_csv(os.path.join(training_pred_score_path , 'saved_models/',f'{chemical}_False_y_pred_list_df.csv'),index_col=0)
+                    if chemical == 'zinc':
 
-                            if idx == 0:
-                                comb_df_corrected = self.zinc_correction(df, models)
-                                comb_df_corrected.to_csv(os.path.join(path,'saved_models/',f'{chemical}_False_y_pred_list_df.csv'))
-                                comb_df_corrected.to_pickle(os.path.join(path ,'saved_models/',f'{chemical}_{model_first_name}_regression_False_score_trained.pkl'))
-                            else:
-                                comb_df_corrected = pd.DataFrame()
-
+                        if idx == 0:
+                            comb_df_corrected = self.zinc_correction(df, models)
+                            comb_df_corrected.to_csv(os.path.join(path,'saved_models/',f'{chemical}_False_y_pred_list_df.csv'))
                             comb_df_corrected.to_pickle(os.path.join(path ,'saved_models/',f'{chemical}_{model_first_name}_regression_False_score_trained.pkl'))
-                        elif chemical == 'potassium' :
+                        else:
+                            comb_df_corrected = pd.DataFrame()
 
-    #                         source = os.path.join(source_path ,'saved_models','cec_False_y_pred_list_df.csv')
-    #                         shutil.copy2(source,os.path.join(path,'saved_models/','cec_False_y_pred_list_df.csv'))
-                            print(f'running {chemical} post-correction')
-                            if idx == 0:
+                        comb_df_corrected.to_pickle(os.path.join(path ,'saved_models/',f'{chemical}_{model_first_name}_regression_False_score_trained.pkl'))
+                    elif chemical == 'potassium' :
 
-                                comb_df_corrected = self.potassium_correction(df, models)
-                                comb_df_corrected.to_csv(os.path.join(path,'saved_models/',f'{chemical}_False_y_pred_list_df.csv'))
-    #                             comb_df_corrected.to_pickle(os.path.join(path ,'saved_models/',f'cec_{model_first_name}_regression_False_score_trained.pkl'))
-    #                             EvaluationTool().chem_to_percentage_conversion(path,corrected_chems)
+#                         source = os.path.join(source_path ,'saved_models','cec_False_y_pred_list_df.csv')
+#                         shutil.copy2(source,os.path.join(path,'saved_models/','cec_False_y_pred_list_df.csv'))
+                        print(f'running {chemical} post-correction')
+                        if idx == 0:
 
-                            else:
-                                comb_df_corrected = pd.DataFrame()
+                            comb_df_corrected = self.potassium_correction(df, models)
+                            comb_df_corrected.to_csv(os.path.join(path,'saved_models/',f'{chemical}_False_y_pred_list_df.csv'))
+#                             comb_df_corrected.to_pickle(os.path.join(path ,'saved_models/',f'cec_{model_first_name}_regression_False_score_trained.pkl'))
+#                             EvaluationTool().chem_to_percentage_conversion(path,corrected_chems)
 
-    #                                  
-                            comb_df_corrected.to_pickle(os.path.join(path ,'saved_models/',f'{chemical}_{model_first_name}_regression_False_score_trained.pkl'))
-    #                         comb_df_corrected.to_pickle(os.path.join(path ,'saved_models/',f'cec_{model_first_name}_regression_False_score_trained.pkl'))
+                        else:
+                            comb_df_corrected = pd.DataFrame()
 
-
-
-
-    #                                 else:
-    #                                     pass
-                        elif chemical =='phosphorus':
-                            source = os.path.join(source_path ,'saved_models',f'{chemical}_False_y_pred_list_df.csv')
-                            shutil.copy2(source,os.path.join(path,'saved_models/',f'{chemical}_False_y_pred_list_df.csv'))
-                            df.to_pickle(os.path.join(path ,'saved_models/',f'{chemical}_{model_first_name}_regression_False_score_trained.pkl'))
+#                                  
+                        comb_df_corrected.to_pickle(os.path.join(path ,'saved_models/',f'{chemical}_{model_first_name}_regression_False_score_trained.pkl'))
+#                         comb_df_corrected.to_pickle(os.path.join(path ,'saved_models/',f'cec_{model_first_name}_regression_False_score_trained.pkl'))
 
 
-                else:
-                    pass
-        except:
-            pass
+
+
+#                                 else:
+#                                     pass
+                    elif chemical =='phosphorus':
+                        source = os.path.join(source_path ,'saved_models',f'{chemical}_False_y_pred_list_df.csv')
+                        shutil.copy2(source,os.path.join(path,'saved_models/',f'{chemical}_False_y_pred_list_df.csv'))
+                        df.to_pickle(os.path.join(path ,'saved_models/',f'{chemical}_{model_first_name}_regression_False_score_trained.pkl'))
+
+
+            else:
+                pass
+        # except:
+        #     pass
 
         with open(os.path.join(path2, 'post_prediction_rules.txt') , 'w') as f:
             for line in lines:
@@ -1832,18 +1852,18 @@ class Models_Summary:
                 
        
         for chemical in all_chems:
-            try:
-                print('Printing is +++++++++++++++++++++++++++++++++++++++++', chemical)
+            # try:
+            print('Printing is +++++++++++++++++++++++++++++++++++++++++', chemical)
 
 
 
-                best_model = self.BestModelSelectorPerChem(path_to_evaluation_summary=path_to_evaluation_summary, chemical=chemical,working_metrics=working_metrics)
-                best_model_df = best_model.replace(best_model.iloc[0][0], chemical)
-                best_models_comb_df = pd.concat([best_models_comb_df, best_model_df])
-              
+            best_model = self.BestModelSelectorPerChem(path_to_evaluation_summary=path_to_evaluation_summary, chemical=chemical,working_metrics=working_metrics)
+            best_model_df = best_model.replace(best_model.iloc[0][0], chemical)
+            best_models_comb_df = pd.concat([best_models_comb_df, best_model_df])
+            
                 
-            except:
-                pass
+            # except:
+            #     pass
                 #             except Exception as e:
             #                 print(f'{chemical} fails with exception {e}')
             #                 pass
@@ -1927,7 +1947,7 @@ class Models_Summary:
         
         self.Models_Summary(training_pred_score_path, project_name, working_metrics,corrected_chems=False)
 
-        df = self.post_prediction_preds(training_pred_score_path,project_name,working_metrics,corrected_chems,chem_correction=True)
+        # df = self.post_prediction_preds(training_pred_score_path,project_name,working_metrics,corrected_chems,chem_correction=True)
         folders = ['Evaluation_Summary', 'Predictions','confusion_matrix','scatter_plots']
              
         today = date.today()
@@ -1936,8 +1956,8 @@ class Models_Summary:
         d1 = d1.replace('/','_')
 #         os.makedirs(os.path.join(training_pred_score_path,f'{d1}_{project_name}__v5'),exist_ok=True)
 #                 os.makedirs(os.path.join(training_pred_score_path,f'{d1}_{project_name}__v5'),exist_ok=True)
-        final_folder = os.path.join(training_pred_score_path,f'{d1}_{project_name}__v5','post_correction')
-        os.makedirs(final_folder,exist_ok=True)  
+        # final_folder = os.path.join(training_pred_score_path,f'{d1}_{project_name}_v6','post_correction')
+        # os.makedirs(final_folder,exist_ok=True)  
              
 #         path_to_save  = os.path.join(training_pred_score_path ,'post_correction','saved_models')
 #         post_prediction_rules_path  = os.path.join(training_pred_score_path ,'post_correction','saved_models','post_prediction_rules.txt')
@@ -1955,7 +1975,7 @@ class Models_Summary:
 #         shutil.copy2(post_prediction_rules_path,final_folder )
         return 
 
-def eval(chemicals, path_to_spectra, path_to_wet, predction_folder_path, model_versions, path_to_model, output_path):
+def eval(chemicals, path_to_spectra, path_to_wet, predction_folder_path, model_versions, path_to_model, output_path,project_name):
 
     # v2.0 v2.2
     import gc
@@ -1976,7 +1996,7 @@ def eval(chemicals, path_to_spectra, path_to_wet, predction_folder_path, model_v
     # path_to_model = 'D://CropNutsDocuments/DS-ML87/outputFiles/exchangeable_acidity_20230502_090639.071097'
     # output_path = 'D://CropNutsDocuments/DS-ML87/outputFiles/data/preds'
     predict_chems(path_to_model, predction_folder_path, chemicals,
-                  model_versions, pd.read_csv(path_to_spectra, engine='c', index_col=0))
+                  model_versions, path_to_spectra)
     post_pred_version_per_chem = {
         'potassium': 'v1', 'phosphorus': 'v3', 'zinc': 'v1'}
     paths = [path_to_spectra]
@@ -1994,7 +2014,7 @@ def eval(chemicals, path_to_spectra, path_to_wet, predction_folder_path, model_v
     delete_files(training_pred_score_path)
     # project_name = 'v2.0-v2.2'
     print("Model Summary Stats Call 1")
-    df = modelsSummary.ModelsSummaryStats(training_pred_score_path, 'ModelUpdateTrial', working_metrics, corrected_chems=[
+    df = modelsSummary.ModelsSummaryStats(training_pred_score_path, project_name, working_metrics, corrected_chems=[
         'zinc', 'phosphrous'], chem_correction=False, predict=False, chemicals=chemicals)
 
     # 2021-x-x_v2.0-v2.2_v2.0-v2.2_v5.1
@@ -2012,27 +2032,28 @@ def eval(chemicals, path_to_spectra, path_to_wet, predction_folder_path, model_v
 
 if __name__ == "__main__":
     models = [
-        'base',
-        'v2.2',
-        'spike250',
-        'spike50'
+        # "v2.2",
+        'baseoptimize',
+        'spike50optimize',
+        'spike250optimize',
         ]
     eval(
         chemicals=[
-            # 'ph',
-            'sand'
-            # 'cec',
-            # 'clay',
-            # 'magnesium',
-            
-            # 'phosphorus',
-            # 'potassium'
+            'ph',
+            'sand',
+            'phosphorus',
+            'clay',
+            'magnesium',
+            'calcium',
+            'organic_carbon',
+            'potassium'
         ],
-        path_to_spectra=f"D://Cropnuts/DSML155/input/test_spc.csv",
-        path_to_wet=f"D://Cropnuts/DSML155/input/base_optimize/wetchem/wetchem.csv",
+        path_to_spectra=f"D://Cropnuts/DSML155/input",
+        path_to_wet=f"D://Cropnuts/DSML155/input/wetchem.csv",
         predction_folder_path=f"D://Cropnuts/DSML155/output/predictions",
         model_versions=[i for i in models if i in (os.listdir(
             f"D://Cropnuts/QC_Model_Predictions/dl_models_all_chems_20210414"))],
-        path_to_model=f"D://Cropnuts/QC_Model_Predictions/dl_models_all_chems_20210414",
-        output_path=f"D://Cropnuts/DSML155/output/predictions/{'-'.join(models)}"
+        path_to_model="D://Cropnuts/QC_Model_Predictions/dl_models_all_chems_20210414",
+        output_path="D://Cropnuts/DSML155/output/evaluation/twomm_evaluation",
+        project_name= 'twomm_evaluation'
     )
