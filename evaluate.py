@@ -55,8 +55,12 @@ def predict_chems(path_to_model, predction_folder_path, chemicals, model_version
         print(f"This is the path to model {path_to_model}")
         for chemical in chemicals:
             test_codes_chem = pd.read_csv(Path(os.path.join(path_to_splits, f'splits/{chemical}_test_sample_codes.csv')),index_col=1)
+            print(len(test_codes_chem))
+            data_spc = data_spc.groupby(data_spc.index).last()
+            data = data_spc.loc[data_spc.index.isin(test_codes_chem.index)]
             data = data_spc.reindex(test_codes_chem.index)
-            data = data_spc.copy(deep=True)
+            # data = data_spc.copy(deep=True)
+            print("Making predictions for these number of spectra: ",len(data))
             preds_comb = pd.DataFrame()
             models_folder = base_path / model_version / chemical / 'std'
             print(f"This is the model path {models_folder}")
@@ -692,7 +696,7 @@ class PlotModelStats:
         fig = ff.create_annotated_heatmap(cm.transpose(), x=target_names, y=target_names, colorscale='blues', showscale=True, reversescale=False)
         fig['layout']['xaxis'].update(side='bottom', title='True')
         fig['layout']['yaxis'].update(side='left', title='Predicted')
-        fig.update_layout(title=f'{area} {model_first_name} {chemical} confusion matrix')
+        fig.update_layout(title=f' {model_first_name} {chemical} confusion matrix')
         if plot == True:
 
             fig.show()
@@ -701,7 +705,6 @@ class PlotModelStats:
             cm_plot_path_subset = os.path.join(cm_path, 'saved_models', 'confusion_matrix_subset','{}_{}_{}_cm.png'.format(chemical, model_first_name, normalized))
             cm_plot_path = os.path.join(cm_path, 'saved_models', 'confusion_matrix','{}_{}_{}_cm.png'.format(chemical, model_first_name, normalized))
             if codes != None:
-                
                 os.makedirs(os.path.join(cm_path, 'saved_models', 'confusion_matrix_subset'),exist_ok=True)
                 fig.write_image(cm_plot_path_subset)
             else:
@@ -710,6 +713,7 @@ class PlotModelStats:
 
     def _create_confusion_matrices(self, training_pred_score_path, region,chem_correction, chemicals_conv, codes=None):
         area = region
+        print("This is the area: --------------->", area)
         method = 'classification'
 
 
@@ -2026,7 +2030,7 @@ class Models_Summary:
         
         self.Models_Summary(training_pred_score_path, project_name, working_metrics,corrected_chems=corrected_chems)
 
-        # df = self.post_prediction_preds(training_pred_score_path,project_name,working_metrics,corrected_chems,chem_correction=True)
+        df = self.post_prediction_preds(training_pred_score_path,project_name,working_metrics,corrected_chems,chem_correction=chem_correction)
         folders = ['Evaluation_Summary', 'Predictions','confusion_matrix','scatter_plots']
              
         today = date.today()
@@ -2102,8 +2106,7 @@ def eval(chemicals, path_to_spectra, path_to_wet, predction_folder_path, model_v
             # delete_files(training_pred_score_path)
             # project_name = 'v2.0-v2.2'
             # print("Model Summary Stats Call 1")
-            modelsSummary.ModelsSummaryStats(training_pred_score_path, project_name, working_metrics, corrected_chems=[
-                'ph'], chem_correction=True, predict=False, chemicals=chemicals)
+            modelsSummary.ModelsSummaryStats(training_pred_score_path, project_name, working_metrics, corrected_chems=[], chem_correction=False, predict=False, chemicals=chemicals)
 
             # 2021-x-x_v2.0-v2.2_v2.0-v2.2_v5.1
 
